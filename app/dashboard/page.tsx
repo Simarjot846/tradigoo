@@ -3,12 +3,23 @@
 import { useAuth } from "@/lib/auth-context";
 import { BuyerDashboard } from "@/components/dashboard/buyer-dashboard";
 import { SellerDashboard } from "@/components/dashboard/seller-dashboard";
-import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
+  const router = useRouter();
 
-  if (loading) {
+  // Redirect to login if not authenticated and not loading
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/auth/login');
+    }
+  }, [user, loading, router]);
+
+  // Show skeleton if loading OR if we are about to redirect (user is null)
+  // This prevents the blank page flash while redirecting
+  if (loading || !user) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-black p-8 space-y-8">
         {/* Header Skeleton */}
@@ -26,8 +37,6 @@ export default function DashboardPage() {
       </div>
     );
   }
-
-  if (!user) return null; // Middleware will handle redirect
 
   // Strict Role-Based Rendering
   if (user.role === 'wholesaler') {
