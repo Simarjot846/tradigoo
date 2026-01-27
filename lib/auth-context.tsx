@@ -82,27 +82,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    // Safety timeout to prevent infinite loading
+    const timer = setTimeout(() => {
+      setLoading((currentLoading) => {
+        if (currentLoading) {
+          console.warn("Auth check timed out, forcing loading to false");
+          return false;
+        }
+        return currentLoading;
+      });
+    }, 5000); // 5 seconds max wait
+
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         fetchUserProfile(session.user).then(profile => {
           setUser(profile);
           setLoading(false);
+          clearTimeout(timer);
         }).catch(err => {
           console.error("Profile fetch error:", err);
           setLoading(false);
+          clearTimeout(timer);
         });
       } else {
         setLoading(false);
+        clearTimeout(timer);
       }
     }).catch(err => {
       // Ignore AbortErrors (common during reloads/redirects)
       if (err.name === 'AbortError' || err.message?.includes('aborted')) {
         setLoading(false);
+        clearTimeout(timer);
         return;
       }
       console.error("Session check failed:", err);
       setLoading(false);
+      clearTimeout(timer);
     });
 
     // Listen for auth changes
@@ -115,10 +131,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
         }
         setLoading(false);
+        clearTimeout(timer);
       }
     );
 
-    return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string): Promise<User | null> => {
