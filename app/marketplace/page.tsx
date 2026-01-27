@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import MarketplaceLoading from './loading';
 
 function MarketplaceContent() {
   const { user, loading } = useAuth();
@@ -71,19 +72,26 @@ function MarketplaceContent() {
     }, 5000);
 
     async function loadProducts() {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
 
-      if (isMounted) {
-        if (error) console.error('Error loading products:', error);
-        else setProducts(data || []);
+        if (error) throw error;
 
-        setLoadingProducts(false);
-        clearTimeout(timer);
+        if (isMounted) {
+          setProducts(data || []);
+        }
+      } catch (error) {
+        console.error("Marketplace load error:", error);
+      } finally {
+        if (isMounted) {
+          setLoadingProducts(false);
+          clearTimeout(timer);
+        }
       }
     }
     loadProducts();
@@ -124,7 +132,7 @@ function MarketplaceContent() {
   const categories = ['all', ...Array.from(new Set(products.map(p => p.category)))];
 
   if (loading || loadingProducts) {
-    return null; // MarketplaceLoading will show
+    return <MarketplaceLoading />;
   }
 
 

@@ -50,18 +50,27 @@ export function BuyerDashboard() {
         }, 5000);
 
         async function loadData() {
-            const supabase = createClient();
-            const { data } = await supabase
-                .from('products')
-                .select('*')
-                .eq('is_active', true)
-                .order('demand_score', { ascending: false }) // Show high demand first
-                .limit(10);
+            try {
+                const supabase = createClient();
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('*')
+                    .eq('is_active', true)
+                    .order('demand_score', { ascending: false }) // Show high demand first
+                    .limit(10);
 
-            if (isMounted) {
-                if (data) setProducts(data);
-                setLoading(false);
-                clearTimeout(timer);
+                if (error) throw error;
+
+                if (isMounted) {
+                    if (data) setProducts(data);
+                }
+            } catch (error) {
+                console.error("Dashboard data load failed:", error);
+            } finally {
+                if (isMounted) {
+                    setLoading(false);
+                    clearTimeout(timer);
+                }
             }
         }
         loadData();
