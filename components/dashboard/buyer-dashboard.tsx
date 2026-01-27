@@ -41,6 +41,14 @@ export function BuyerDashboard() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        let isMounted = true;
+        const timer = setTimeout(() => {
+            if (isMounted) {
+                console.warn("Buyer dashboard load timed out");
+                setLoading(false);
+            }
+        }, 5000);
+
         async function loadData() {
             const supabase = createClient();
             const { data } = await supabase
@@ -50,10 +58,18 @@ export function BuyerDashboard() {
                 .order('demand_score', { ascending: false }) // Show high demand first
                 .limit(10);
 
-            if (data) setProducts(data);
-            setLoading(false);
+            if (isMounted) {
+                if (data) setProducts(data);
+                setLoading(false);
+                clearTimeout(timer);
+            }
         }
         loadData();
+
+        return () => {
+            isMounted = false;
+            clearTimeout(timer);
+        };
     }, []);
 
     const highDemandProducts = products.slice(0, 3);

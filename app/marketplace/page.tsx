@@ -62,6 +62,14 @@ function MarketplaceContent() {
 
   // Load products from Supabase
   useEffect(() => {
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      if (isMounted) {
+        console.warn("Marketplace load timed out");
+        setLoadingProducts(false);
+      }
+    }, 5000);
+
     async function loadProducts() {
       const supabase = createClient();
       const { data, error } = await supabase
@@ -70,12 +78,20 @@ function MarketplaceContent() {
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
-      if (error) console.error('Error loading products:', error);
-      else setProducts(data || []);
+      if (isMounted) {
+        if (error) console.error('Error loading products:', error);
+        else setProducts(data || []);
 
-      setLoadingProducts(false);
+        setLoadingProducts(false);
+        clearTimeout(timer);
+      }
     }
     loadProducts();
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
   }, []);
 
   // Use client-side filtering for simplicity given the mock/small dataset
