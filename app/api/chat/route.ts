@@ -25,8 +25,8 @@ export async function POST(req: Request) {
 
         // Initialize Gemini with the current key
         const genAI = new GoogleGenerativeAI(apiKey);
-        // Using 'gemini-flash-latest' which aliases to the stable 1.5 Flash model (Free Tier supported)
-        const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
+        // Using 'gemini-2.5-flash' as the latest stable model available for this key
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
         const systemPrompt = `
 You are Tradigoo Assistant, a bilingual AI helper for a B2B agricultural marketplace(connecting farmers / wholesalers to retailers).

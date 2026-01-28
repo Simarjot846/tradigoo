@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Package, TrendingUp, DollarSign, Search, Filter, MoreHorizontal, Clock, AlertTriangle, BarChart3, Settings, Truck, Camera, Check, X, ArrowUpRight } from "lucide-react";
+import CryptoJS from "crypto-js";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -47,26 +48,19 @@ export function SellerDashboard() {
             try {
                 const supabase = createClient();
 
-                // 1. Inventory
-                const { data: products, error: prodError } = await supabase
-                    .from('products')
-                    .select('*')
-                    .order('created_at', { ascending: false });
+                // Parallel Data Fetching for Performance
+                const [inventoryRes, ordersRes] = await Promise.all([
+                    supabase.from('products').select('*').order('created_at', { ascending: false }),
+                    supabase.from('orders').select('*, product:products!product_id(name, base_price)').eq('status', 'payment_in_escrow').order('created_at', { ascending: false }).limit(5)
+                ]);
 
-                if (prodError) throw prodError;
+                if (inventoryRes.error) throw inventoryRes.error;
+                if (ordersRes.error) throw ordersRes.error;
 
-                // 2. Pending Orders
-                const { data: orders, error: orderError } = await supabase
-                    .from('orders')
-                    .select('*, product:products!product_id(name, base_price)')
-                    .eq('status', 'payment_in_escrow')
-                    .order('created_at', { ascending: false })
-                    .limit(5);
+                if (inventoryRes.data) setInventory(inventoryRes.data);
+                if (ordersRes.data) setPendingOrders(ordersRes.data);
 
-                if (orderError) throw orderError;
-
-                if (products) setInventory(products);
-                if (orders) setPendingOrders(orders);
+                // (Handled above)
             } catch (error) {
                 console.error("Dashboard Load Error:", error);
             } finally {
@@ -295,9 +289,27 @@ export function SellerDashboard() {
                                                     {/* Print QR Button */}
                                                     <Button size="sm" variant="outline" className="h-8 border-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 hover:text-blue-700 dark:hover:text-blue-300" onClick={async () => {
                                                         // ... QR Logic (unchanged)
+                                                        // ... QR Logic (unchanged)
                                                         try {
                                                             const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
-                                                            const verifyUrl = `${baseUrl}/verify/${order.id}`;
+
+                                                            // Payload Construction
+                                                            const payload = JSON.stringify({
+                                                                id: order.id,
+                                                                p: order.product?.name || "Unknown Product",
+                                                                q: order.quantity,
+                                                                t: new Date().toISOString(),
+                                                                salt: crypto.randomUUID()
+                                                            });
+
+                                                            // Encryption
+                                                            const secretKey = "TRADIGOO_SECRET_KEY_PROD";
+                                                            const encrypted = CryptoJS.AES.encrypt(payload, secretKey).toString();
+
+                                                            // Construct URL with encoded data parameter
+                                                            // We replace '+' with '%20' or handle encoding properly because URL params can be tricky with base64
+                                                            const verifyUrl = `${baseUrl}/verify-qr?data=${encodeURIComponent(encrypted)}`;
+
                                                             const qrDataUrl = await QRCode.toDataURL(verifyUrl, { width: 300, margin: 2, color: { dark: '#000000', light: '#ffffff' } });
                                                             const link = document.createElement('a');
                                                             link.href = qrDataUrl;

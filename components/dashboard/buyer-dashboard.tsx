@@ -42,12 +42,6 @@ export function BuyerDashboard() {
 
     useEffect(() => {
         let isMounted = true;
-        const timer = setTimeout(() => {
-            if (isMounted) {
-                console.warn("Buyer dashboard load timed out");
-                setLoading(false);
-            }
-        }, 5000);
 
         async function loadData() {
             try {
@@ -56,30 +50,34 @@ export function BuyerDashboard() {
                     .from('products')
                     .select('*')
                     .eq('is_active', true)
-                    .order('demand_score', { ascending: false }) // Show high demand first
+                    .order('demand_score', { ascending: false })
                     .limit(10);
 
                 if (error) throw error;
 
-                if (isMounted) {
-                    if (data) setProducts(data);
+                if (isMounted && data) {
+                    setProducts(data);
                 }
             } catch (error) {
                 console.error("Dashboard data load failed:", error);
             } finally {
-                if (isMounted) {
-                    setLoading(false);
-                    clearTimeout(timer);
-                }
+                if (isMounted) setLoading(false);
             }
         }
-        loadData();
+
+        if (user) {
+            loadData();
+        } else {
+            // If user is null (initial load or logged out), we might still want to load products 
+            // or wait. Assuming dashboard is protected, user should be there or useAuth handles redirect.
+            // But to be safe and avoid "flash", we can load anyway or wait.
+            loadData();
+        }
 
         return () => {
             isMounted = false;
-            clearTimeout(timer);
         };
-    }, []);
+    }, [user]);
 
     const highDemandProducts = products.slice(0, 3);
     const recommendedProducts = products.slice(3, 8);
