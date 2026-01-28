@@ -124,9 +124,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: any, session: any) => {
+        // Prevent unnecessary updates if session is just refreshing but user is same
+        if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
         if (session?.user) {
+          // Optimization: Only fetch profile if we don't have one or if it's a critical event
+          // checking event types can help, but safest is to fetch and compare.
           const profile = await fetchUserProfile(session.user);
-          setUser(profile);
+
+          setUser(prev => {
+            if (JSON.stringify(prev) === JSON.stringify(profile)) return prev;
+            return profile;
+          });
         } else {
           setUser(null);
         }

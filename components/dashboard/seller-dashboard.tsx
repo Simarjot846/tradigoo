@@ -145,18 +145,7 @@ export function SellerDashboard() {
         <div className="min-h-screen pb-20 dark:bg-zinc-950 bg-background relative overflow-hidden selection:bg-purple-500/30 transition-colors duration-300">
             {/* Animated Background */}
             <div className="fixed inset-0 z-0 text-left">
-                <motion.div
-                    animate={{
-                        background: [
-                            "radial-gradient(ellipse at top left, rgba(88, 28, 135, 0.15), transparent 50%)",
-                            "radial-gradient(ellipse at top right, rgba(59, 130, 246, 0.15), transparent 50%)",
-                            "radial-gradient(ellipse at bottom left, rgba(236, 72, 153, 0.15), transparent 50%)",
-                            "radial-gradient(ellipse at top left, rgba(88, 28, 135, 0.15), transparent 50%)"
-                        ]
-                    }}
-                    transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                    className="absolute inset-0 z-0 hidden dark:block"
-                />
+                <div className="absolute inset-0 z-0 hidden dark:block bg-gradient-to-br from-purple-900/20 via-zinc-950 to-blue-900/20" />
                 <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-0 dark:opacity-20 bg-repeat mix-blend-overlay" />
             </div>
 
