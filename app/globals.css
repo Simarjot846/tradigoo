@@ -274,3 +274,9 @@
     animation: aurora 60s linear infinite;
   }
 }
+
+/* Force Disable All Animations */
+* {
+  animation-duration: 0s !important;
+  transition-duration: 0s !important;
+}
