@@ -50,8 +50,16 @@ export function SellerDashboard() {
 
                 // Parallel Data Fetching for Performance
                 const [inventoryRes, ordersRes] = await Promise.all([
-                    supabase.from('products').select('*').order('created_at', { ascending: false }),
-                    supabase.from('orders').select('*, product:products!product_id(name, base_price)').eq('status', 'payment_in_escrow').order('created_at', { ascending: false }).limit(5)
+                    supabase.from('products')
+                        .select('*')
+                        .eq('seller_id', user.id)
+                        .order('created_at', { ascending: false }),
+                    supabase.from('orders')
+                        .select('*, product:products!product_id(name, base_price)')
+                        .eq('seller_id', user.id)
+                        .eq('status', 'payment_in_escrow')
+                        .order('created_at', { ascending: false })
+                        .limit(5)
                 ]);
 
                 if (inventoryRes.error) throw inventoryRes.error;
@@ -109,7 +117,11 @@ export function SellerDashboard() {
 
     const handleProductAdded = () => {
         const supabase = createClient();
-        supabase.from('products').select('*').order('created_at', { ascending: false })
+        if (!user) return;
+        supabase.from('products')
+            .select('*')
+            .eq('seller_id', user.id)
+            .order('created_at', { ascending: false })
             .then(({ data }: any) => { if (data) setInventory(data); });
     };
 
