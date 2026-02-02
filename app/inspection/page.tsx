@@ -161,7 +161,7 @@ export default function InspectionScannerPage() {
                 <ArrowLeft className="w-5 h-5 mr-2" /> Back
             </Button>
 
-            <h1 className="text-2xl font-bold text-white mb-6">Scan Internal QR (v1.1)</h1>
+            <h1 className="text-2xl font-bold text-white mb-6">Scan Internal QR (v1.2)</h1>
 
             {error ? (
                 <Card className="max-w-md w-full bg-red-900/10 border-red-500/50 p-6 text-center">
@@ -241,24 +241,7 @@ export default function InspectionScannerPage() {
                     </Button>
                 </div>
             )}
-            {/* Manual Verification */}
-            <div className="mt-8 w-full max-w-sm">
-                <div className="bg-zinc-900/80 border border-white/10 rounded-xl p-4">
-                    <p className="text-sm text-zinc-400 mb-2 font-medium">Offline/Manual Verification</p>
-                    <Textarea
-                        placeholder="Paste scanned QR data here..."
-                        className="bg-black/50 border-white/10 text-white min-h-[80px] mb-3 text-xs font-mono"
-                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
-                            if (e.target.value.length > 20) {
-                                handleScan(e.target.value);
-                            }
-                        }}
-                    />
-                    <p className="text-[10px] text-zinc-600">
-                        If camera fails, use a generic QR scanner app and copy-paste the code here.
-                    </p>
-                </div>
-            </div>
+
         </div>
     );
 }
