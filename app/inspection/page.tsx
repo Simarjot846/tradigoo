@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import jsQR from "jsqr";
+import { createClient } from "@/lib/supabase-client";
 import CryptoJS from "crypto-js";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -105,12 +106,37 @@ export default function InspectionScannerPage() {
         };
     }, [scanning]);
 
-    const handleScan = (rawData: string) => {
+    const handleScan = async (rawData: string) => {
         setScanning(false);
         try {
-            // Check if it's a Public Verification URL (wrong QR type for this scanner)
+            // Handle Public Verification URL (Standard Tradigoo Link)
             if (rawData.includes("/verify/") && !rawData.includes("?data=")) {
-                throw new Error("This is a Public Verification QR. Please use a standard Camera app or the 'Scan Internal QR' feature is strictly for encrypted internal package codes.");
+                const parts = rawData.split("/verify/");
+                const orderId = parts[1]?.split("?")[0]; // Handle potential extra params
+
+                if (!orderId) throw new Error("Could not extract Order ID from URL");
+
+                // Fetch Order Details from Supabase
+                const supabase = createClient();
+                const { data, error } = await supabase
+                    .from('orders')
+                    .select('id, quantity, product:products(name)')
+                    .eq('id', orderId)
+                    .single();
+
+                if (error || !data) throw new Error("Order not found in public registry");
+
+                // Safely handle product name extraction (Supabase can return array or object depending on relation)
+                const productName = Array.isArray(data.product) ? data.product[0]?.name : (data.product as any)?.name;
+
+                setResult({
+                    p: productName || "Unknown Product",
+                    q: data.quantity,
+                    id: data.id,
+                    t: new Date().toISOString() // Just as a timestamp for scan
+                });
+                toast.success("Public QR Verified!");
+                return;
             }
 
             // Check if it's a URL or raw data
