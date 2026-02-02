@@ -166,139 +166,144 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
         clearTimeout(timer);
       }
-    );
+      }
+  );
 
-  }, []);
+  return () => {
+    subscription.unsubscribe();
+    clearTimeout(timer);
+  };
+}, []);
 
-  const signIn = async (email: string, password: string): Promise<User | null> => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+const signIn = async (email: string, password: string): Promise<User | null> => {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) throw error;
+
+  if (data.user) {
+    const profile = await fetchUserProfile(data.user);
+    setUser(profile);
+    return profile;
+  }
+  return null;
+};
+
+const signInWithGoogle = async () => {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+    },
+  });
+
+  if (error) throw error;
+};
+
+const signUp = async (email: string, password: string, userData: Partial<User>) => {
+  try {
+    const response = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        userData,
+      }),
     });
 
-    if (error) throw error;
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to sign up');
+    }
 
     if (data.user) {
-      const profile = await fetchUserProfile(data.user);
-      setUser(profile);
-      return profile;
-    }
-    return null;
-  };
+      // Sign in automatically after successful signup if session is returned
+      // But since we did server-side signup, we might need to rely on the auto-login flow 
+      // or just redirect the user to login if email confirmation is enabled.
+      // Assuming email confirmation is NOT required for this demo or handled via flow:
 
-  const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+      // Refresh session to get the user logged in on client side if cookies were set by server action?
+      // Wait, the API route used `supabase.auth.signUp`. If email confirmation is off, it "logs in" the user instance 
+      // on that server client. But it doesn't automatically set the cookie for the *browser* unless 
+      // we passed the request cookies/headers in the API route correctly.
+      // Actually, `createServerClient` in the API route uses `cookies()` headers.
+      // Let's check `lib/supabase-server.ts`. It reads cookies.
 
-    if (error) throw error;
-  };
+      // In the API route:
+      // const supabase = await createClient();
+      // await supabase.auth.signUp(...) 
+      // This sets the auth cookie on the *response* of the internal supabase client.
+      // We probably need to make sure the API route returns the session or we handle the client side login content.
 
-  const signUp = async (email: string, password: string, userData: Partial<User>) => {
-    try {
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          userData,
-        }),
-      });
+      // HOWEVER, simpler approach for now:
+      // Just let the user log in, OR if the API route sets cookies (it might not if we didn't explicitly middleware copy them back),
+      // we can just call signIn with the password immediately after signup to ensure client session is active.
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to sign up');
-      }
-
-      if (data.user) {
-        // Sign in automatically after successful signup if session is returned
-        // But since we did server-side signup, we might need to rely on the auto-login flow 
-        // or just redirect the user to login if email confirmation is enabled.
-        // Assuming email confirmation is NOT required for this demo or handled via flow:
-
-        // Refresh session to get the user logged in on client side if cookies were set by server action?
-        // Wait, the API route used `supabase.auth.signUp`. If email confirmation is off, it "logs in" the user instance 
-        // on that server client. But it doesn't automatically set the cookie for the *browser* unless 
-        // we passed the request cookies/headers in the API route correctly.
-        // Actually, `createServerClient` in the API route uses `cookies()` headers.
-        // Let's check `lib/supabase-server.ts`. It reads cookies.
-
-        // In the API route:
-        // const supabase = await createClient();
-        // await supabase.auth.signUp(...) 
-        // This sets the auth cookie on the *response* of the internal supabase client.
-        // We probably need to make sure the API route returns the session or we handle the client side login content.
-
-        // HOWEVER, simpler approach for now:
-        // Just let the user log in, OR if the API route sets cookies (it might not if we didn't explicitly middleware copy them back),
-        // we can just call signIn with the password immediately after signup to ensure client session is active.
-
-        // Let's stick to the plan: The API creates the account and profile.
-        // Then we can just immediately sign in client-side to establish the local session.
-        try {
-          await signIn(email, password);
-        } catch (signInError: any) {
-          // If auto-login fails (e.g., email not confirmed), we normally shouldn't block the signup success.
-          // The user should just be redirected to login (or dashboard -> login).
-          if (signInError?.message?.includes('Email not confirmed')) {
-            console.warn('Auto-login failed: Email not confirmed. User needs to verify email.');
-            // Do not throw; let the function complete so the UI treats signup as successful
-          } else {
-            // Other errors (like wrong password? shouldn't happen right after signup) 
-            // or network issues should probably be reported.
-            throw signInError;
-          }
+      // Let's stick to the plan: The API creates the account and profile.
+      // Then we can just immediately sign in client-side to establish the local session.
+      try {
+        await signIn(email, password);
+      } catch (signInError: any) {
+        // If auto-login fails (e.g., email not confirmed), we normally shouldn't block the signup success.
+        // The user should just be redirected to login (or dashboard -> login).
+        if (signInError?.message?.includes('Email not confirmed')) {
+          console.warn('Auto-login failed: Email not confirmed. User needs to verify email.');
+          // Do not throw; let the function complete so the UI treats signup as successful
+        } else {
+          // Other errors (like wrong password? shouldn't happen right after signup) 
+          // or network issues should probably be reported.
+          throw signInError;
         }
       }
-    } catch (error) {
-      console.error('Signup error:', error);
-      throw error;
     }
-  };
+  } catch (error) {
+    console.error('Signup error:', error);
+    throw error;
+  }
+};
 
-  const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-    setUser(null);
-    router.push('/');
-  };
+const signOut = async () => {
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+  setUser(null);
+  router.push('/');
+};
 
-  const resetPassword = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback`,
-    });
-    if (error) throw error;
-  };
+const resetPassword = async (email: string) => {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/auth/callback`,
+  });
+  if (error) throw error;
+};
 
-  const updatePassword = async (password: string) => {
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) throw error;
-  };
+const updatePassword = async (password: string) => {
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) throw error;
+};
 
-  const value = useMemo(() => ({
-    user,
-    loading,
-    signIn,
-    signInWithGoogle,
-    signUp,
-    signOut,
-    refreshUser,
-    resetPassword,
-    updatePassword
-  }), [user, loading]);
+const value = useMemo(() => ({
+  user,
+  loading,
+  signIn,
+  signInWithGoogle,
+  signUp,
+  signOut,
+  refreshUser,
+  resetPassword,
+  updatePassword
+}), [user, loading]);
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+return (
+  <AuthContext.Provider value={value}>
+    {children}
+  </AuthContext.Provider>
+);
 }
 
 export function useAuth() {
