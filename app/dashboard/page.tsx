@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import dynamic from 'next/dynamic';
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 
 // Lazy Load Dashboards
 const BuyerDashboard = dynamic(() => import('@/components/dashboard/buyer-dashboard').then(mod => mod.BuyerDashboard), {
@@ -25,18 +25,31 @@ export default function DashboardPage() {
     }
   }, [user, loading, router]);
 
-  // Show skeleton if loading OR if we are about to redirect (user is null)
-  if (loading || !user) {
+  // Show skeleton if loading
+  if (loading) {
     return <DashboardSkeleton />;
+  }
+
+  // If not loading but no user, it means we are unauthenticated or about to redirect
+  if (!user) {
+    return <DashboardSkeleton />; // Show skeleton while redirecting or if unauthenticated
   }
 
   // Strict Role-Based Rendering
   if (user.role === 'wholesaler') {
-    return <SellerDashboard />;
+    return (
+      <Suspense fallback={<DashboardSkeleton />}>
+        <SellerDashboard />
+      </Suspense>
+    );
   }
 
   // Default to Buyer Dashboard for retailers or undefined roles
-  return <BuyerDashboard />;
+  return (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <BuyerDashboard />
+    </Suspense>
+  );
 }
 
 function DashboardSkeleton() {

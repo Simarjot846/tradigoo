@@ -214,6 +214,9 @@
 
   .animate-blob {
     animation: blob 7s infinite;
+    will-change: transform;
+    transform: translateZ(0);
+    /* Force GPU */
   }
 
   .animation-delay-2000 {
@@ -227,14 +230,17 @@
   .animate-gradient {
     background-size: 200% 200%;
     animation: gradient 3s ease infinite;
+    will-change: background-position;
   }
 
   .animate-float {
     animation: float 3s ease-in-out infinite;
+    will-change: transform;
   }
 
   .animate-glow {
     animation: glow 2s ease-in-out infinite;
+    will-change: box-shadow;
   }
 
   .bg-grainy {

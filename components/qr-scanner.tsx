@@ -104,8 +104,17 @@ export function QRScanner({ orderId, expectedDetails, onVerify }: QRScannerProps
         }
     };
 
-    const tick = () => {
-        if (!videoRef.current) return; // Guard
+    const lastScanTime = useRef<number>(0);
+
+    const tick = (time: number) => {
+        if (!videoRef.current) return;
+
+        animationFrameId.current = requestAnimationFrame(tick);
+
+        // Throttle scanning to once every 500ms (2 FPS) to save CPU/Battery
+        if (time - lastScanTime.current < 500) {
+            return;
+        }
 
         if (videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
             if (canvasRef.current) {
@@ -118,27 +127,21 @@ export function QRScanner({ orderId, expectedDetails, onVerify }: QRScannerProps
 
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
+                    // Heavy operation - now runs only 2x per second
                     const code = jsQR(imageData.data, imageData.width, imageData.height, {
                         inversionAttempts: "dontInvert",
                     });
 
                     if (code) {
                         handleScanResult(code.data);
-                        return; // Found code, stop loop (handleScanResult calls stopScanning)
+                        // Cancel the next frame if found
+                        if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
+                        return;
                     }
+                    lastScanTime.current = time;
                 }
             }
         }
-
-        // Loop if still scanning
-        // We need to check if we should continue. `scanning` state might be stale in closure, 
-        // but if we stopped, animationFrameId would be null or we can check a ref.
-        // However, standard pattern is recursive call.
-        // We rely on stopScanning cancelling the frame to stop this loop.
-        // BUT if we just call requestAnimationFrame(tick), it creates a new ID.
-        // We'll trust stopScanning to cancel the *current* ID, but we need to update the ref with the *new* ID.
-        // Actually, easiest is just:
-        animationFrameId.current = requestAnimationFrame(tick);
     };
 
     // Cleanup on unmount

@@ -18,55 +18,89 @@ export default function InspectionScannerPage() {
     const [error, setError] = useState<string | null>(null);
 
     // Camera Logic
+    // Camera Logic with Safety Checks
     useEffect(() => {
         let animationFrameId: number;
+        let stream: MediaStream | null = null;
+        let isMounted = true;
 
         const startCamera = async () => {
+            // Double check ref existence before even asking for permissions if possible, 
+            // but usually we need permission first.
+            // Just ensure we don't crash if ref is gone after await.
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                const constraints = { video: { facingMode: "environment" } };
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+                if (!isMounted) {
+                    stream.getTracks().forEach(track => track.stop());
+                    return;
+                }
+
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
-                    videoRef.current.setAttribute("playsinline", "true");
-                    videoRef.current.play();
-                    requestAnimationFrame(tick);
+                    videoRef.current.setAttribute("playsinline", "true"); // required for iOS
+
+                    // Wait for video to be ready
+                    videoRef.current.onloadedmetadata = () => {
+                        if (videoRef.current && isMounted) {
+                            videoRef.current.play().catch(e => console.error("Play error:", e));
+                            requestAnimationFrame(tick);
+                        }
+                    };
                 }
             } catch (err) {
                 console.error("Camera Error:", err);
-                setError("Camera access denied or unavailable. Please ensure you gave permission.");
+                if (isMounted) {
+                    setError("Camera access denied or unavailable. Please ensure you gave permission.");
+                    setScanning(false);
+                }
             }
         };
 
         const tick = () => {
+            if (!isMounted || !scanning) return;
+
             if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
                 if (canvasRef.current) {
                     const canvas = canvasRef.current;
-                    const ctx = canvas.getContext("2d");
+                    const ctx = canvas.getContext("2d", { willReadFrequently: true }); // optimize for read
                     if (ctx) {
                         canvas.height = videoRef.current.videoHeight;
                         canvas.width = videoRef.current.videoWidth;
                         ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-                        const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                            inversionAttempts: "dontInvert",
-                        });
+                        try {
+                            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                                inversionAttempts: "dontInvert",
+                            });
 
-                        if (code) {
-                            handleScan(code.data);
-                            return; // Stop scanning
+                            if (code) {
+                                handleScan(code.data);
+                                return;
+                            }
+                        } catch (e) {
+                            console.warn("Frame read error", e);
                         }
                     }
                 }
             }
-            if (scanning) animationFrameId = requestAnimationFrame(tick);
+            animationFrameId = requestAnimationFrame(tick);
         };
 
-        if (scanning) startCamera();
+        if (scanning) {
+            startCamera();
+        }
 
         return () => {
+            isMounted = false;
             cancelAnimationFrame(animationFrameId);
-            if (videoRef.current?.srcObject) {
-                (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            if (videoRef.current) {
+                videoRef.current.srcObject = null;
             }
         };
     }, [scanning]);

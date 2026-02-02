@@ -82,25 +82,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    // Safety timeout to prevent infinite loading
+    // Safety timeout - Reduced to 4 seconds as requested for faster fallback
     const timer = setTimeout(() => {
       setLoading((currentLoading) => {
         if (currentLoading) {
-          console.warn("Auth check timed out (8s), forcing loading to false. This may be due to slow network or database wake-up.");
+          console.warn("Auth check timed out (4s). Assuming public/guest state.");
           return false;
         }
         return currentLoading;
       });
-    }, 8000); // Increased to 8 seconds
+    }, 4000);
 
     // Check active session
     const start = performance.now();
+    console.log("Authenticating...");
+
     supabase.auth.getSession().then(({ data: { session } }: any) => {
       if (session?.user) {
-        console.log("Session found, fetching profile...");
+        console.log(`Session found in ${(performance.now() - start).toFixed(2)}ms, fetching profile...`);
         fetchUserProfile(session.user).then(profile => {
-          console.log(`Profile fetched in ${(performance.now() - start).toFixed(2)}ms`);
-          setUser(profile);
+          if (profile) {
+            setUser(profile);
+          } else {
+            // Fallback if profile fetch fails but auth is valid? 
+            // Usually implies issue, but we shouldn't block app.
+            console.warn("User authenticated but profile load failed.");
+          }
           setLoading(false);
           clearTimeout(timer);
         }).catch(err => {
@@ -113,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clearTimeout(timer);
       }
     }).catch((err: any) => {
-      // Ignore AbortErrors (common during reloads/redirects)
+      // Ignore AbortErrors
       if (err.name === 'AbortError' || err.message?.includes('aborted')) {
         setLoading(false);
         clearTimeout(timer);
@@ -127,7 +134,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: any, session: any) => {
-        // Prevent unnecessary updates if session is just refreshing but user is same
         if (event === 'SIGNED_OUT') {
           setUser(null);
           setLoading(false);
@@ -135,9 +141,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (session?.user) {
-          // Optimization: Only fetch profile if we don't have one or if it's a critical event
-          // checking event types can help, but safest is to fetch and compare.
+          // Optimistic update if we already have a user and IDs match, 
+          // might not need to refetch immediately unless it's a profile update event?
+          // But strict generic auth change (like token refresh) shouldn't trigger heavy DB call ideally.
+
+          if (event === 'TOKEN_REFRESHED' && user?.id === session.user.id) {
+            // Skip profile refetch on token refresh to reduce load
+            return;
+          }
+
           try {
+            // Only fetch if necessary
             const profile = await fetchUserProfile(session.user);
             setUser(prev => {
               if (JSON.stringify(prev) === JSON.stringify(profile)) return prev;

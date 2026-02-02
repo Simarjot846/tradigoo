@@ -402,19 +402,45 @@ function AddProductDialog({ children, onProductAdded }: any) {
 
         try {
             let imageUrl = null;
-            // Image upload (Mock or Real)
+
+            // Real Image Upload
             if (imageFile) {
-                // Mock logic for demo speed
-                imageUrl = URL.createObjectURL(imageFile);
+                const fileExt = imageFile.name.split('.').pop();
+                const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+                const filePath = `product-images/${fileName}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('product-images')
+                    .upload(filePath, imageFile);
+
+                if (uploadError) {
+                    throw new Error("Image upload failed: " + uploadError.message);
+                }
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('product-images')
+                    .getPublicUrl(filePath);
+
+                imageUrl = publicUrl;
             }
 
             const price = parseFloat(formData.base_price) || 0;
             const moq = parseInt(formData.min_order_quantity) || 1;
 
-            await supabase.from('products').insert([{
-                name: formData.name, category: formData.category, base_price: price, min_order_quantity: moq, unit: formData.unit, description: formData.description,
-                image_url: imageUrl, is_active: true, demand_score: 80, seller_id: user?.id
+            const { error } = await supabase.from('products').insert([{
+                name: formData.name,
+                category: formData.category,
+                base_price: price,
+                min_order_quantity: moq,
+                unit: formData.unit,
+                description: formData.description,
+                image_url: imageUrl,
+                is_active: true,
+                demand_score: 80,
+                seller_id: user?.id
             }]);
+
+            if (error) throw error;
 
             setOpen(false);
             setFormData({ name: "", category: "", base_price: "", min_order_quantity: "", unit: "piece", description: "" });
@@ -424,7 +450,7 @@ function AddProductDialog({ children, onProductAdded }: any) {
 
         } catch (error: any) {
             console.error(error);
-            toast.error("Failed to add product");
+            toast.error(error.message || "Failed to add product");
         } finally {
             setLoading(false);
         }
@@ -446,6 +472,17 @@ function AddProductDialog({ children, onProductAdded }: any) {
                         <Input placeholder="Category" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
                         <Input placeholder="Min Qty" type="number" value={formData.min_order_quantity} onChange={e => setFormData({ ...formData, min_order_quantity: e.target.value })} className="bg-zinc-900 border-zinc-800" required />
                     </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="image" className="text-zinc-400">Product Image</Label>
+                        <Input
+                            id="image"
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setImageFile(e.target.files ? e.target.files[0] : null)}
+                            className="bg-zinc-900 border-zinc-800 cursor-pointer text-zinc-400 file:bg-zinc-800 file:text-white file:border-0 file:rounded-md file:px-2 file:text-xs"
+                        />
+                    </div>
+                    <Textarea placeholder="Description" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="bg-zinc-900 border-zinc-800" />
                     <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-500" disabled={loading}>{loading ? "Saving..." : "Save Product"}</Button>
                 </form>
             </DialogContent>
