@@ -82,60 +82,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    // Safety timeout - Increased to 15 seconds to accommodate slower networks
+    // Safety timeout - reduced to 5s as getUser should be fast
     const timer = setTimeout(() => {
       setLoading((currentLoading) => {
         if (currentLoading) {
-          console.warn(`Auth check timed out (15s). Pending state: ${currentLoading}. Assuming public/guest state.`);
+          // If still loading after 5s, assume public.
           return false;
         }
         return currentLoading;
       });
-    }, 15000);
+    }, 5000);
 
-    // Check active session
-    const start = performance.now();
-    console.log(`[Auth] Starting auth check at ${start.toFixed(2)}ms`);
+    const initializeAuth = async () => {
+      try {
+        const start = performance.now();
+        // getUser is more secure and reliable than getSession for auth status
+        const { data: { user: authUser }, error } = await supabase.auth.getUser();
 
-    supabase.auth.getSession().then(({ data: { session } }: any) => {
-      const sessionTime = performance.now();
-      console.log(`[Auth] Session Retrieval: ${(sessionTime - start).toFixed(2)}ms`, session ? "Session found" : "No session");
+        console.log(`[Auth] Check completed in ${(performance.now() - start).toFixed(2)}ms`);
 
-      if (session?.user) {
-        console.log(`[Auth] Fetching profile for user ${session.user.id}...`);
-        fetchUserProfile(session.user).then(profile => {
-          const profileTime = performance.now();
-          console.log(`[Auth] Profile Fetch: ${(profileTime - sessionTime).toFixed(2)}ms`);
-
-          if (profile) {
-            setUser(profile);
-          } else {
-            console.warn("[Auth] User authenticated but profile load failed.");
-          }
+        if (error) {
+          // If error (e.g. no session), just finish loading
           setLoading(false);
-          clearTimeout(timer);
-          console.log(`[Auth] Complete. Total time: ${(performance.now() - start).toFixed(2)}ms`);
-        }).catch(err => {
-          console.error("[Auth] Profile fetch error:", err);
-          setLoading(false);
-          clearTimeout(timer);
-        });
-      } else {
+          return;
+        }
+
+        if (authUser) {
+          await fetchUserProfile(authUser).then(profile => {
+            if (profile) setUser(profile);
+          });
+        }
+      } catch (err) {
+        console.error("[Auth] Init error:", err);
+      } finally {
         setLoading(false);
         clearTimeout(timer);
-        console.log(`[Auth] No session. Total time: ${(performance.now() - start).toFixed(2)}ms`);
       }
-    }).catch((err: any) => {
-      // Ignore AbortErrors
-      if (err.name === 'AbortError' || err.message?.includes('aborted')) {
-        setLoading(false);
-        clearTimeout(timer);
-        return;
-      }
-      console.error("[Auth] Session check failed:", err);
-      setLoading(false);
-      clearTimeout(timer);
-    });
+    };
+
+    initializeAuth();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -293,7 +278,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.warn('Server signout failed, falling back to client signOut', e);
       try {
         await supabase.auth.signOut();
-      } catch {}
+      } catch { }
     }
 
     setUser(null);
