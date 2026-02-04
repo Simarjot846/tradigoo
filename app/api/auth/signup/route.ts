@@ -1,4 +1,4 @@
-import { createClient, createServiceClient } from '@/lib/supabase-server';
+import { createClient, createServiceClient, createClientWithCookieCollector } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabase = await createClient();
+    const { supabase, cookieActions } = createClientWithCookieCollector();
     const supabaseAdmin = createServiceClient();
 
     // 1. Sign up the user
@@ -81,10 +81,29 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({
+    // Build response and apply cookies recorded by the Supabase client
+    const response = NextResponse.json({
       user: authData.user,
       message: 'Account created successfully'
     });
+
+    // Apply any Set-Cookie actions collected during the signup call
+    if (cookieActions && cookieActions.length) {
+      for (const action of cookieActions) {
+        try {
+          response.cookies.set({
+            name: action.name,
+            value: action.value,
+            ...(action.options || {}),
+          });
+        } catch (e) {
+          // ignore cookie set failures but log in case of debugging
+          console.warn('Failed to apply cookie action', action.name, e);
+        }
+      }
+    }
+
+    return response;
 
   } catch (error) {
     console.error('Signup API error:', error);

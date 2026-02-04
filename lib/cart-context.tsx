@@ -22,7 +22,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             return;
         }
         try {
-            const res = await fetch('/api/cart');
+            const res = await fetch('/api/cart', { credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
                 // Assuming API returns array of items. Count unique items or total quantity?
@@ -43,6 +43,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         try {
             const res = await fetch('/api/cart', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ product_id: productId, quantity }),
             });

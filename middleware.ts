@@ -1,8 +1,24 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+function normalizeCookieOptions(options?: CookieOptions) {
+  const defaultSameSite = process.env.COOKIE_SAME_SITE || 'None';
+  const secureEnv = process.env.COOKIE_SECURE;
+  const secure = secureEnv ? secureEnv === 'true' : true;
+  const domain = process.env.COOKIE_DOMAIN || undefined;
+
+  return {
+    httpOnly: true,
+    secure,
+    sameSite: defaultSameSite as 'lax' | 'none' | 'strict' | undefined,
+    domain,
+    path: '/',
+    ...(options || {}),
+  } as CookieOptions;
+}
+
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
@@ -17,38 +33,22 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
+          const opts = normalizeCookieOptions(options);
+          // Set cookie on the outgoing response only once — do not reassign response.
+          try {
+            response.cookies.set({ name, value, ...opts });
+          } catch (e) {
+            // If cookie can't be set in middleware runtime, ignore but log.
+            console.warn('Failed to set cookie in middleware:', name, e);
+          }
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
+          const opts = normalizeCookieOptions(options);
+          try {
+            response.cookies.set({ name, value: '', maxAge: 0, ...opts });
+          } catch (e) {
+            console.warn('Failed to remove cookie in middleware:', name, e);
+          }
         },
       },
     }

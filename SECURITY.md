@@ -263,11 +263,13 @@ RAZORPAY_WEBHOOK_SECRET    # NEVER expose to client
 ### Cookie Configuration
 ```typescript
 {
-  httpOnly: true,        // Prevents XSS access
-  secure: true,          // HTTPS only
-  sameSite: 'lax',       // CSRF protection
-  maxAge: 3600,          // 1 hour
-  path: '/'
+  httpOnly: true,        // Prevents JS access to cookies
+  secure: true,          // HTTPS only (required when SameSite=None)
+  sameSite: 'None',      // Allow cross-site cookies across subdomains (use when frontend and API are on different subdomains)
+  domain: '.your-production-domain.com', // Set to your apex domain when sharing cookies across subdomains
+  path: '/',
+  // Use short access token lifetime and longer refresh token lifetime. Access token example: 15m. Refresh cookie example: 14 days.
+  // For refresh cookies, set a long maxAge and mark httpOnly & secure.
 }
 ```
 

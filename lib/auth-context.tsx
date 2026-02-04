@@ -182,19 +182,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string): Promise<User | null> => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    // Use server-side sign-in to ensure cookies set by server are forwarded to the browser
+    const res = await fetch('/api/auth/signin', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
     });
 
-    if (error) throw error;
+    const payload = await res.json();
 
-    if (data.user) {
-      const profile = await fetchUserProfile(data.user);
+    if (!res.ok) {
+      throw new Error(payload.error || 'Sign in failed');
+    }
+
+    if (payload.user) {
+      const profile = await fetchUserProfile(payload.user);
       setUser(profile);
       return profile;
     }
-    return null;
+
+    // If server didn't return user, attempt to refresh client session
+    await refreshUser();
+    return user;
   };
 
   const signInWithGoogle = async () => {
@@ -215,6 +225,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           email,
           password,
@@ -275,8 +286,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    // Use server signout to clear server cookies
+    try {
+      await fetch('/api/auth/signout', { method: 'POST', credentials: 'include' });
+    } catch (e) {
+      console.warn('Server signout failed, falling back to client signOut', e);
+      try {
+        await supabase.auth.signOut();
+      } catch {}
+    }
+
     setUser(null);
     router.push('/');
   };
