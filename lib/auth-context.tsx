@@ -82,42 +82,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    // Safety timeout - Increased to 10 seconds as requested
+    // Safety timeout - Increased to 15 seconds to accommodate slower networks
     const timer = setTimeout(() => {
       setLoading((currentLoading) => {
         if (currentLoading) {
-          console.warn("Auth check timed out (10s). Assuming public/guest state.");
+          console.warn(`Auth check timed out (15s). Pending state: ${currentLoading}. Assuming public/guest state.`);
           return false;
         }
         return currentLoading;
       });
-    }, 10000);
+    }, 15000);
 
     // Check active session
     const start = performance.now();
-    console.log("Authenticating...");
+    console.log(`[Auth] Starting auth check at ${start.toFixed(2)}ms`);
 
     supabase.auth.getSession().then(({ data: { session } }: any) => {
+      const sessionTime = performance.now();
+      console.log(`[Auth] Session Retrieval: ${(sessionTime - start).toFixed(2)}ms`, session ? "Session found" : "No session");
+
       if (session?.user) {
-        console.log(`Session found in ${(performance.now() - start).toFixed(2)}ms, fetching profile...`);
+        console.log(`[Auth] Fetching profile for user ${session.user.id}...`);
         fetchUserProfile(session.user).then(profile => {
+          const profileTime = performance.now();
+          console.log(`[Auth] Profile Fetch: ${(profileTime - sessionTime).toFixed(2)}ms`);
+
           if (profile) {
             setUser(profile);
           } else {
-            // Fallback if profile fetch fails but auth is valid? 
-            // Usually implies issue, but we shouldn't block app.
-            console.warn("User authenticated but profile load failed.");
+            console.warn("[Auth] User authenticated but profile load failed.");
           }
           setLoading(false);
           clearTimeout(timer);
+          console.log(`[Auth] Complete. Total time: ${(performance.now() - start).toFixed(2)}ms`);
         }).catch(err => {
-          console.error("Profile fetch error:", err);
+          console.error("[Auth] Profile fetch error:", err);
           setLoading(false);
           clearTimeout(timer);
         });
       } else {
         setLoading(false);
         clearTimeout(timer);
+        console.log(`[Auth] No session. Total time: ${(performance.now() - start).toFixed(2)}ms`);
       }
     }).catch((err: any) => {
       // Ignore AbortErrors
@@ -126,7 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clearTimeout(timer);
         return;
       }
-      console.error("Session check failed:", err);
+      console.error("[Auth] Session check failed:", err);
       setLoading(false);
       clearTimeout(timer);
     });
