@@ -13,7 +13,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { supabase, cookieActions } = createClientWithCookieCollector();
+    const { supabase, cookieActions } = await createClientWithCookieCollector();
     const supabaseAdmin = createServiceClient();
 
     // 1. Sign up the user

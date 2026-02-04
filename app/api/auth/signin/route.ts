@@ -10,7 +10,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
-    const { supabase, cookieActions } = createClientWithCookieCollector();
+    const { supabase, cookieActions } = await createClientWithCookieCollector();
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 

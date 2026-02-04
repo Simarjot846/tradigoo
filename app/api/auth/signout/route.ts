@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 export async function POST() {
   try {
-    const { supabase, cookieActions } = createClientWithCookieCollector();
+    const { supabase, cookieActions } = await createClientWithCookieCollector();
 
     const { error } = await supabase.auth.signOut();
     if (error) {

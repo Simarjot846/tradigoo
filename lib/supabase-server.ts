@@ -33,8 +33,8 @@ export async function createClient() {
 
 // New helper: create a Supabase server client that collects cookie actions so
 // the calling API route can apply them to the outgoing NextResponse.
-export function createClientWithCookieCollector() {
-  const cookieStore = cookies();
+export async function createClientWithCookieCollector() {
+  const cookieStore = await cookies();
   const cookieActions: Array<{ name: string; value: string; options?: CookieOptions }> = [];
 
   const supabase = createServerClient(

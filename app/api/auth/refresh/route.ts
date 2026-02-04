@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
-    const { supabase, cookieActions } = createClientWithCookieCollector();
+    const { supabase, cookieActions } = await createClientWithCookieCollector();
 
     // Attempt to read session — if refresh cookie is present, Supabase server client
     // should use it to refresh and return a session.

@@ -4,11 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "browserslist": [
-      "defaults",
-      "not ie 11",
-      "not op_mini all"
-    ],
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
