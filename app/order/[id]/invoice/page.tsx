@@ -20,51 +20,59 @@ export default function InvoicePage() {
     useEffect(() => {
         let isMounted = true;
         const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+            if (isMounted) {
+                console.warn("[Invoice] Fetch timed out (10s)");
+                setLoading(false);
+            }
+        }, 10000);
 
         async function fetchInvoiceData() {
+            console.log(`[Invoice] Fetching data for order ${params.id}. AuthLoading: ${authLoading}, User: ${user?.id}`);
+
+            // Wait for global auth to finish locally
+            if (authLoading) {
+                console.log("[Invoice] Waiting for auth...");
+                return;
+            }
+
             try {
-                // 1. Resolve User
-                let currentUser = user;
-                const supabase = createClient();
-
-                if (!currentUser && !authLoading) {
-                    // Try manual session recovery
-                    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-                    if (session?.user) {
-                        currentUser = session.user as any;
-                    }
-                }
-
-                if (!currentUser) {
-                    if (isMounted && !authLoading) setLoading(false);
+                // 1. Check User
+                if (!user) {
+                    console.warn("[Invoice] No authenticated user found.");
+                    if (isMounted) setLoading(false);
                     return;
                 }
 
-                // 2. Fetch Order with Abort Signal check (Manual check after await)
+                const supabase = createClient();
+
+                // 2. Fetch Order
+                console.log("[Invoice] Querying Supabase for order...");
                 const { data: orderData, error: orderError } = await supabase
                     .from('orders')
                     .select(`*, product:products(name, unit)`)
                     .eq('id', params.id)
                     .single();
-                // Note: supabase-js .abortSignal() might not be available in all versions, 
-                // preventing breakage by just checking isMounted/signal.aborted after await.
 
                 if (controller.signal.aborted) return;
-                if (!isMounted) return;
 
                 if (orderError || !orderData) {
                     console.error("Error fetching invoice order:", orderError?.message || orderError);
-                    setLoading(false);
+                    if (isMounted) setLoading(false);
                     return;
                 }
 
                 // 3. Set Data
-                setOrder({
-                    ...orderData,
-                    product_name: orderData.product?.name || 'Product',
-                    unit: orderData.product?.unit
-                });
+                if (isMounted) {
+                    setOrder({
+                        ...orderData,
+                        product_name: orderData.product?.name || 'Product',
+                        unit: orderData.product?.unit
+                    });
+                }
 
+                // 4. Fetch Profiles
+                console.log("[Invoice] Fetching profiles...");
                 const { data: profiles } = await supabase
                     .from('profiles')
                     .select('*')
@@ -77,12 +85,12 @@ export default function InvoicePage() {
                         setBuyer(profiles.find((p: any) => p.id === orderData.buyer_id) || mockUsers[0]);
                         setSeller(profiles.find((p: any) => p.id === orderData.seller_id) || mockUsers[1]);
                     }
+                    console.log("[Invoice] Data load complete.");
                     setLoading(false);
                 }
 
             } catch (err: any) {
                 if (err.name === 'AbortError' || controller.signal.aborted) {
-                    // Ignore abort errors
                     return;
                 }
                 console.error("Invoice Data Fetch Error:", err);
@@ -95,6 +103,7 @@ export default function InvoicePage() {
         return () => {
             isMounted = false;
             controller.abort();
+            clearTimeout(timeoutId);
         };
     }, [params.id, user, authLoading]);
 
