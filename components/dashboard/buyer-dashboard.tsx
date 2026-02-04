@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase-client";
+import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
 import React, { memo, useCallback } from "react";
@@ -37,47 +38,22 @@ function getCategoryEmoji(category: string): string {
 export function BuyerDashboard() {
     const { user } = useAuth();
     const router = useRouter();
-    const [products, setProducts] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { data: products = [], isLoading: loading } = useQuery({
+        queryKey: ['products'],
+        queryFn: async () => {
+            const supabase = createClient();
+            const { data, error } = await supabase
+                .from('products')
+                .select('*')
+                .eq('is_active', true)
+                .order('demand_score', { ascending: false })
+                .limit(10);
 
-    useEffect(() => {
-        let isMounted = true;
-
-        async function loadData() {
-            try {
-                const supabase = createClient();
-                const { data, error } = await supabase
-                    .from('products')
-                    .select('*')
-                    .eq('is_active', true)
-                    .order('demand_score', { ascending: false })
-                    .limit(10);
-
-                if (error) throw error;
-
-                if (isMounted && data) {
-                    setProducts(data);
-                }
-            } catch (error) {
-                console.error("Dashboard data load failed:", error);
-            } finally {
-                if (isMounted) setLoading(false);
-            }
-        }
-
-        if (user) {
-            loadData();
-        } else {
-            // If user is null (initial load or logged out), we might still want to load products 
-            // or wait. Assuming dashboard is protected, user should be there or useAuth handles redirect.
-            // But to be safe and avoid "flash", we can load anyway or wait.
-            loadData();
-        }
-
-        return () => {
-            isMounted = false;
-        };
-    }, [user]);
+            if (error) throw error;
+            return data;
+        },
+        staleTime: 5 * 60 * 1000, // 5 minutes
+    });
 
     const highDemandProducts = products.slice(0, 3);
     const recommendedProducts = products.slice(3, 8);

@@ -9,6 +9,7 @@ import { RoleThemeProvider } from "@/lib/theme-context";
 import { Navbar } from "@/components/navbar";
 import { ThemePersistence } from "@/components/theme-persistence";
 import { CartProvider } from "@/lib/cart-context";
+import { QueryProvider } from "@/components/providers/query-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,26 +43,28 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <CartProvider>
-              <RoleThemeProvider>
-                <Suspense fallback={<div className="h-[72px] w-full bg-white dark:bg-[#0a0a0a]" />}>
-                  <Navbar />
-                </Suspense>
-                <ThemePersistence />
-                {children}
-              </RoleThemeProvider>
-            </CartProvider>
-            <ChatbotWrapper />
-            <Toaster />
-          </ThemeProvider>
-        </AuthProvider>
+        <QueryProvider>
+          <AuthProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="dark"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <CartProvider>
+                <RoleThemeProvider>
+                  <Suspense fallback={<div className="h-[72px] w-full bg-white dark:bg-[#0a0a0a]" />}>
+                    <Navbar />
+                  </Suspense>
+                  <ThemePersistence />
+                  {children}
+                </RoleThemeProvider>
+              </CartProvider>
+              <ChatbotWrapper />
+              <Toaster />
+            </ThemeProvider>
+          </AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );
