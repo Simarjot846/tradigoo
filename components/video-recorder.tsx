@@ -20,6 +20,7 @@ export function VideoRecorder({ onRecordingComplete }: VideoRecorderProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const chunksRef = useRef<Blob[]>([]);
+    const timerRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         return () => {
@@ -30,8 +31,11 @@ export function VideoRecorder({ onRecordingComplete }: VideoRecorderProps) {
             if (previewUrl) {
                 URL.revokeObjectURL(previewUrl);
             }
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+            }
         };
-    }, []);
+    }, [previewUrl]);
 
     const startCamera = async () => {
         try {
@@ -112,27 +116,29 @@ export function VideoRecorder({ onRecordingComplete }: VideoRecorderProps) {
         setIsRecording(true);
         setCountdown(30);
 
+        // Clear any existing timer
+        if (timerRef.current) clearInterval(timerRef.current);
+
         // Timer logic
-        const timer = setInterval(() => {
+        timerRef.current = setInterval(() => {
             setCountdown((prev) => {
                 if (prev <= 1) {
                     stopRecording();
-                    clearInterval(timer);
                     return 0;
                 }
                 return prev - 1;
             });
         }, 1000);
-
-        // Store timer ID to clear if stopped manually? 
-        // Simplified: relying on state updates or manual stop which might leak interval visual update but functionally ok.
-        // Better: useRef for timer if perfect cleanup needed, but this is short-lived component.
     };
 
     const stopRecording = () => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
             mediaRecorderRef.current.stop();
             setIsRecording(false);
+        }
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
         }
     };
 
