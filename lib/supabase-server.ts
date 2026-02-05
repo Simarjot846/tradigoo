@@ -5,8 +5,8 @@ export async function createClient() {
   const cookieStore = await cookies();
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'example-key',
     {
       cookies: {
         get(name: string) {
@@ -38,8 +38,8 @@ export async function createClientWithCookieCollector() {
   const cookieActions: Array<{ name: string; value: string; options?: CookieOptions }> = [];
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'example-key',
     {
       cookies: {
         get(name: string) {
@@ -61,8 +61,8 @@ export async function createClientWithCookieCollector() {
 // Service role client for admin operations (use carefully!)
 export function createServiceClient() {
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || 'example-key',
     {
       cookies: {
         get() { return undefined; },
