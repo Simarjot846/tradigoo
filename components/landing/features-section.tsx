@@ -45,14 +45,14 @@ export function FeaturesSection() {
                         },
                         {
                             icon: Search,
-                            title: "Deep Vetting",
-                            desc: "We physically inspect factories and verify business licenses. Only the top 1% of manufacturers make it onto Tradigoo.",
+                            title: "Supplier Verification System",
+                            desc: "Making sure all partners are trustworthy through careful check.",
                             color: "text-orange-400"
                         },
                         {
                             icon: Lock,
-                            title: "Smart Contracts",
-                            desc: "Automatically generate legally binding contracts that protect your IP and enforce quality standards.",
+                            title: "Dispute Management",
+                            desc: "Fair and efficient resolution mechanisms for any trade disagreement.",
                             color: "text-pink-400"
                         },
                         {

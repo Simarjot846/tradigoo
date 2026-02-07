@@ -13,7 +13,7 @@ export function Footer() {
                             <span className="text-xl font-bold text-foreground dark:text-white">Tradigoo</span>
                         </div>
                         <p className="text-muted-foreground dark:text-white/40 text-sm leading-relaxed">
-                            The modern operating system for global B2B sourcing. built for brands that move fast.
+                            The modern operating system for B2B sourcing. built for brands that move fast.
                         </p>
                     </div>
                     <div>
